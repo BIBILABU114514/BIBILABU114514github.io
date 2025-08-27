@@ -17,7 +17,8 @@
                         secondary: '#10B981',
                         accent: '#8B5CF6',
                         neutral: '#64748B',
-                        resultBg: '#F3F4F6'
+                        resultBg: '#F3F4F6',
+                        locked: '#EF4444'
                     },
                     fontFamily: {
                         sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -116,7 +117,11 @@
                 text-overflow: ellipsis;
             }
             .result-highlight {
-                box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.2);
+                /* 移除文字下的框 */
+                box-shadow: none;
+            }
+            .lock-transition {
+                transition: all 0.3s ease;
             }
         }
     </style>
@@ -173,6 +178,9 @@
                 <button id="clearAll" class="flex items-center gap-2 bg-neutral hover:bg-neutral/90 text-white px-6 py-3 rounded-lg font-medium hover-lift">
                     <i class="fa fa-trash"></i> 清空所有
                 </button>
+                <button id="toggleAllLocks" class="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium hover-lift">
+                    <i class="fa fa-lock"></i> 全部锁定
+                </button>
             </div>
         </div>
         
@@ -188,12 +196,17 @@
                 </div>
                 
                 <!-- 列随机结果显示框 - 优化布局和样式 -->
-                <div class="column-result border-2 border-primary/30 bg-resultBg rounded-xl p-4 mb-5 result-float">
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm text-gray-500 whitespace-nowrap">当前选择：</span>
-                        <div class="column-result-text flex-1 font-bold text-xl text-primary rounded-lg text-center py-2 result-highlight">
-                            -
+                <div class="column-result border-2 border-primary/30 bg-resultBg rounded-xl p-4 mb-5 result-float lock-transition">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm text-gray-500 whitespace-nowrap">当前选择：</span>
+                            <div class="column-result-text flex-1 font-bold text-xl text-primary rounded-lg text-center py-2 result-highlight">
+                                -
+                            </div>
                         </div>
+                        <button class="lock-column ml-2 p-2 text-gray-400 hover:text-locked lock-transition" title="锁定/解锁">
+                            <i class="fa fa-unlock"></i>
+                        </button>
                     </div>
                 </div>
                 
@@ -246,12 +259,17 @@
                 </div>
                 
                 <!-- 列随机结果显示框 - 优化布局和样式 -->
-                <div class="column-result border-2 border-primary/30 bg-resultBg rounded-xl p-4 mb-5 result-float">
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm text-gray-500 whitespace-nowrap">当前选择：</span>
-                        <div class="column-result-text flex-1 font-bold text-xl text-primary rounded-lg text-center py-2 result-highlight">
-                            -
+                <div class="column-result border-2 border-primary/30 bg-resultBg rounded-xl p-4 mb-5 result-float lock-transition">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm text-gray-500 whitespace-nowrap">当前选择：</span>
+                            <div class="column-result-text flex-1 font-bold text-xl text-primary rounded-lg text-center py-2 result-highlight">
+                                -
+                            </div>
                         </div>
+                        <button class="lock-column ml-2 p-2 text-gray-400 hover:text-locked lock-transition" title="锁定/解锁">
+                            <i class="fa fa-unlock"></i>
+                        </button>
                     </div>
                 </div>
                 
@@ -305,6 +323,7 @@
         const addColumnBtn = document.getElementById('addColumn');
         const randomAllBtn = document.getElementById('randomAll');
         const clearAllBtn = document.getElementById('clearAll');
+        const toggleAllLocksBtn = document.getElementById('toggleAllLocks');
         const previewContainer = document.getElementById('previewContainer');
         const presetSelect = document.getElementById('presetSelect');
         const savePresetBtn = document.getElementById('savePreset');
@@ -317,6 +336,8 @@
         let columnCounter = document.querySelectorAll('.column').length;
         // 预设数据存储
         let presets = [];
+        // 跟踪是否全部锁定
+        let allLocked = false;
         
         // 添加按钮点击反馈效果
         function setupButtonFeedback(button) {
@@ -327,19 +348,90 @@
             });
         }
         
-        // 检查是否有重复词条
+        // 检查是否有重复词条 - 修复bug：只有当新输入的值非空且确实存在重复时才返回true
         function hasDuplicateEntry(container, newValue) {
-            if (!newValue.trim()) return false;
+            const trimmedValue = newValue.trim();
+            if (!trimmedValue) return false; // 空值不视为重复
             
             const entries = container.querySelectorAll('.entry-text');
-            const normalizedValue = newValue.trim().toLowerCase();
+            const normalizedValue = trimmedValue.toLowerCase();
+            let duplicateCount = 0;
             
             for (let entry of entries) {
                 if (entry.value.trim().toLowerCase() === normalizedValue) {
-                    return true;
+                    duplicateCount++;
+                    if (duplicateCount > 1) { // 允许一个已存在的值，超过一个才视为重复
+                        return true;
+                    }
                 }
             }
             return false;
+        }
+        
+        // 切换列的锁定状态 - 修复锁定状态同步问题
+        function toggleColumnLock(lockButton) {
+            const resultContainer = lockButton.closest('.column-result');
+            const isLocked = resultContainer.classList.contains('locked');
+            
+            if (isLocked) {
+                // 解锁 - 恢复动画和交互
+                resultContainer.classList.remove('locked', 'border-locked', 'bg-gray-100');
+                resultContainer.classList.add('result-float');
+                lockButton.innerHTML = '<i class="fa fa-unlock"></i>';
+                lockButton.title = '锁定';
+            } else {
+                // 锁定 - 停止动画和交互
+                resultContainer.classList.add('locked', 'border-locked', 'bg-gray-100');
+                resultContainer.classList.remove('result-float');
+                lockButton.innerHTML = '<i class="fa fa-lock"></i>';
+                lockButton.title = '解锁';
+            }
+            
+            updateAllLockStatus();
+            updatePreview(); // 立即更新预览，确保锁定状态同步显示
+        }
+        
+        // 更新全选锁定按钮状态
+        function updateAllLockStatus() {
+            const allColumns = document.querySelectorAll('.column-result');
+            const lockedColumns = document.querySelectorAll('.column-result.locked');
+            
+            allLocked = allColumns.length > 0 && allColumns.length === lockedColumns.length;
+            
+            if (allLocked) {
+                toggleAllLocksBtn.innerHTML = '<i class="fa fa-unlock"></i> 全部解锁';
+                toggleAllLocksBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+                toggleAllLocksBtn.classList.add('bg-locked', 'hover:bg-red-600');
+            } else {
+                toggleAllLocksBtn.innerHTML = '<i class="fa fa-lock"></i> 全部锁定';
+                toggleAllLocksBtn.classList.remove('bg-locked', 'hover:bg-red-600');
+                toggleAllLocksBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+            }
+        }
+        
+        // 切换所有列的锁定状态
+        function toggleAllLocks() {
+            const lockButtons = document.querySelectorAll('.lock-column');
+            
+            if (allLocked) {
+                // 全部解锁
+                lockButtons.forEach(button => {
+                    const resultContainer = button.closest('.column-result');
+                    if (resultContainer.classList.contains('locked')) {
+                        toggleColumnLock(button);
+                    }
+                });
+                showNotification('已解锁所有列');
+            } else {
+                // 全部锁定
+                lockButtons.forEach(button => {
+                    const resultContainer = button.closest('.column-result');
+                    if (!resultContainer.classList.contains('locked')) {
+                        toggleColumnLock(button);
+                    }
+                });
+                showNotification('已锁定所有列');
+            }
         }
         
         // 初始化预设系统
@@ -424,12 +516,17 @@
                 </div>
                 
                 <!-- 列随机结果显示框 - 优化布局和样式 -->
-                <div class="column-result border-2 border-primary/30 bg-resultBg rounded-xl p-4 mb-5 result-float">
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm text-gray-500 whitespace-nowrap">当前选择：</span>
-                        <div class="column-result-text flex-1 font-bold text-xl text-primary rounded-lg text-center py-2 result-highlight">
-                            -
+                <div class="column-result border-2 border-primary/30 bg-resultBg rounded-xl p-4 mb-5 result-float lock-transition">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm text-gray-500 whitespace-nowrap">当前选择：</span>
+                            <div class="column-result-text flex-1 font-bold text-xl text-primary rounded-lg text-center py-2 result-highlight">
+                                -
+                            </div>
                         </div>
+                        <button class="lock-column ml-2 p-2 text-gray-400 hover:text-locked lock-transition" title="锁定/解锁">
+                            <i class="fa fa-unlock"></i>
+                        </button>
                     </div>
                 </div>
                 
@@ -452,6 +549,7 @@
             
             // 添加事件监听器
             setupColumnEventListeners(newColumn);
+            updateAllLockStatus();
             
             return newColumn;
         }
@@ -472,6 +570,7 @@
                 setTimeout(() => {
                     column.remove();
                     updatePreview();
+                    updateAllLockStatus();
                 }, 300);
             });
             setupButtonFeedback(deleteBtn);
@@ -486,10 +585,23 @@
             // 随机此列按钮
             const randomBtn = column.querySelector('.random-column');
             randomBtn.addEventListener('click', () => {
-                randomizeColumn(column);
-                updatePreview();
+                // 检查是否锁定
+                const resultContainer = column.querySelector('.column-result');
+                if (!resultContainer.classList.contains('locked')) {
+                    randomizeColumn(column);
+                    updatePreview();
+                } else {
+                    showNotification('此列已锁定，请先解锁');
+                }
             });
             setupButtonFeedback(randomBtn);
+            
+            // 锁定按钮
+            const lockBtn = column.querySelector('.lock-column');
+            lockBtn.addEventListener('click', () => {
+                toggleColumnLock(lockBtn);
+            });
+            setupButtonFeedback(lockBtn);
             
             // 列标题变化时更新预览
             const titleInput = column.querySelector('.column-title');
@@ -524,11 +636,12 @@
             });
             setupButtonFeedback(deleteBtn);
             
-            // 词条输入框事件 - 检查重复
+            // 词条输入框事件 - 修复重复检查bug
             const entryInput = entryWrapper.querySelector('.entry-text');
             entryInput.addEventListener('blur', function() {
                 const value = this.value;
-                if (hasDuplicateEntry(container, value)) {
+                // 只有当输入值非空且确实存在重复时才删除
+                if (value.trim() && hasDuplicateEntry(container, value)) {
                     // 找到重复的条目并高亮
                     const entries = container.querySelectorAll('.entry-text');
                     for (let entry of entries) {
@@ -596,18 +709,33 @@
         // 随机所有列
         function randomizeAllColumns() {
             const columns = document.querySelectorAll('.column');
+            let unlockedColumns = 0;
+            
             // 先移除所有动画类
             columns.forEach(column => {
-                const resultElement = column.querySelector('.column-result-text');
-                resultElement.classList.remove('result-pop');
+                const resultContainer = column.querySelector('.column-result');
+                // 只处理未锁定的列
+                if (!resultContainer.classList.contains('locked')) {
+                    unlockedColumns++;
+                    const resultElement = column.querySelector('.column-result-text');
+                    resultElement.classList.remove('result-pop');
+                }
             });
+            
+            if (unlockedColumns === 0) {
+                showNotification('所有列都已锁定，请先解锁至少一列');
+                return;
+            }
             
             // 强制重绘
             void document.body.offsetWidth;
             
-            // 同时为所有列应用动画和随机结果
+            // 同时为所有未锁定列应用动画和随机结果
             columns.forEach(column => {
-                randomizeColumn(column);
+                const resultContainer = column.querySelector('.column-result');
+                if (!resultContainer.classList.contains('locked')) {
+                    randomizeColumn(column);
+                }
             });
             
             updatePreview();
@@ -627,11 +755,19 @@
                         entriesContainer.innerHTML = '';
                         column.querySelector('.column-result-text').textContent = '-';
                         column.querySelector('.column-title').value = '列 1';
+                        
+                        // 解锁第一列
+                        const resultContainer = column.querySelector('.column-result');
+                        const lockButton = column.querySelector('.lock-column');
+                        if (resultContainer.classList.contains('locked')) {
+                            toggleColumnLock(lockButton);
+                        }
                     }
                 });
                 
                 columnCounter = 1;
                 updatePreview();
+                updateAllLockStatus();
                 showNotification('已清空所有内容');
             }
         }
@@ -644,10 +780,15 @@
             columns.forEach(column => {
                 const title = column.querySelector('.column-title').value || '未命名列';
                 const result = column.querySelector('.column-result-text').textContent;
+                const isLocked = column.querySelector('.column-result').classList.contains('locked');
                 
                 previewItems.push(`
-                    <div class="flex flex-col items-center p-4 m-2 flex-shrink-0 border-2 border-primary/30 bg-resultBg rounded-xl result-float min-w-[180px]">
-                        <span class="text-base text-gray-600 font-medium mb-1">${title}</span>
+                    <div class="flex flex-col items-center p-4 m-2 flex-shrink-0 border-2 ${isLocked ? 'border-locked' : 'border-primary/30'} 
+                                ${isLocked ? 'bg-gray-100' : 'bg-resultBg'} rounded-xl ${!isLocked ? 'result-float' : ''} min-w-[180px]">
+                        <div class="flex items-center justify-between w-full mb-1">
+                            <span class="text-base text-gray-600 font-medium">${title}</span>
+                            ${isLocked ? '<i class="fa fa-lock text-locked"></i>' : ''}
+                        </div>
                         <div class="px-4 py-2 bg-white text-primary font-bold text-lg rounded-lg result-highlight min-w-[120px] text-center">
                             ${result}
                         </div>
@@ -675,15 +816,17 @@
                 return;
             }
             
-            // 收集当前列数据
+            // 收集当前列数据，包括锁定状态
             const columns = document.querySelectorAll('.column');
             const columnsData = Array.from(columns).map(column => {
                 const title = column.querySelector('.column-title').value || '';
                 const entries = Array.from(column.querySelectorAll('.entry-text'))
                     .map(entry => entry.value.trim())
                     .filter(value => value);
+                const isLocked = column.querySelector('.column-result').classList.contains('locked');
+                const currentValue = column.querySelector('.column-result-text').textContent;
                 
-                return { title, entries };
+                return { title, entries, isLocked, currentValue };
             });
             
             if (columnsData.length === 0) {
@@ -740,6 +883,12 @@
             preset.columns.forEach(colData => {
                 const newColumn = addColumn(colData.title);
                 const entriesContainer = newColumn.querySelector('.entries-container');
+                const resultContainer = newColumn.querySelector('.column-result');
+                const lockButton = newColumn.querySelector('.lock-column');
+                const resultText = newColumn.querySelector('.column-result-text');
+                
+                // 设置当前值
+                resultText.textContent = colData.currentValue || '-';
                 
                 // 添加词条
                 colData.entries.forEach(entryText => {
@@ -768,7 +917,7 @@
                     const entryInput = entryWrapper.querySelector('.entry-text');
                     entryInput.addEventListener('blur', function() {
                         const value = this.value;
-                        if (hasDuplicateEntry(entriesContainer, value)) {
+                        if (value.trim() && hasDuplicateEntry(entriesContainer, value)) {
                             entryWrapper.classList.add('opacity-0', 'scale-90');
                             entryWrapper.style.transition = 'all 0.2s ease';
                             showNotification('已删除重复词条');
@@ -779,9 +928,15 @@
                         }
                     });
                 });
+                
+                // 应用锁定状态
+                if (colData.isLocked) {
+                    toggleColumnLock(lockButton);
+                }
             });
             
             updatePreview();
+            updateAllLockStatus();
             showNotification(`已加载预设: ${preset.name}`);
         }
         
@@ -834,6 +989,10 @@
             // 清空所有按钮
             clearAllBtn.addEventListener('click', clearAll);
             setupButtonFeedback(clearAllBtn);
+            
+            // 全部锁定/解锁按钮
+            toggleAllLocksBtn.addEventListener('click', toggleAllLocks);
+            setupButtonFeedback(toggleAllLocksBtn);
             
             // 预设相关按钮
             savePresetBtn.addEventListener('click', saveCurrentAsPreset);
