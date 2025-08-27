@@ -17,6 +17,7 @@
                         secondary: '#10B981',
                         accent: '#8B5CF6',
                         neutral: '#64748B',
+                        resultBg: '#F3F4F6'
                     },
                     fontFamily: {
                         sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -41,6 +42,14 @@
                 transform: translateY(-2px);
                 box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             }
+            .btn-active {
+                animation: buttonPress 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+            @keyframes buttonPress {
+                0% { transform: scale(1); }
+                50% { transform: scale(0.92); }
+                100% { transform: scale(1); }
+            }
             .fade-in {
                 animation: fadeIn 0.3s ease-in-out;
             }
@@ -48,50 +57,118 @@
                 from { opacity: 0; transform: translateY(10px); }
                 to { opacity: 1; transform: translateY(0); }
             }
-            .pulse {
-                animation: pulse 2s infinite;
+            .result-float {
+                animation: float 3s ease-in-out infinite;
             }
-            @keyframes pulse {
-                0% { transform: scale(1); }
-                50% { transform: scale(1.05); }
-                100% { transform: scale(1); }
+            @keyframes float {
+                0% { transform: translateY(0px); }
+                50% { transform: translateY(-5px); }
+                100% { transform: translateY(0px); }
             }
-            .scale-in {
-                animation: scaleIn 0.2s ease-out;
+            .result-pop {
+                animation: resultPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             }
-            @keyframes scaleIn {
-                from { transform: scale(0.95); opacity: 0; }
-                to { transform: scale(1); opacity: 1; }
+            @keyframes resultPop {
+                0% { transform: scale(0.9); opacity: 0; }
+                70% { transform: scale(1.05); }
+                100% { transform: scale(1); opacity: 1; }
+            }
+            .masonry-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+                gap: 1rem;
+            }
+            .entry-wrapper {
+                position: relative;
+                display: inline-flex;
+                align-items: center;
+            }
+            .delete-btn-outside {
+                position: absolute;
+                right: -20px;
+                top: 50%;
+                transform: translateY(-50%);
+                opacity: 0;
+                transition: all 0.2s ease;
+                cursor: pointer;
+                z-index: 10;
+                background: white;
+                border-radius: 50%;
+                width: 24px;
+                height: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .entry-wrapper:hover .delete-btn-outside {
+                opacity: 1;
+            }
+            .delete-btn-outside:hover {
+                color: #ef4444;
+                transform: translateY(-50%) scale(1.1);
+            }
+            .entry {
+                max-width: 200px;
+            }
+            .entry-text {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .result-highlight {
+                box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.2);
             }
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans">
-    <div class="container mx-auto px-4 py-8 max-w-7xl">
+<body class="min-h-screen font-sans text-gray-800 relative">
+    <!-- 背景图 - 模糊处理 -->
+    <div class="fixed inset-0 z-0">
+        <img src="https://picsum.photos/id/1048/1920/1080" alt="抽象背景纹理" class="w-full h-full object-cover opacity-10 blur-md">
+    </div>
+    
+    <div class="container mx-auto px-4 py-8 max-w-7xl relative z-10">
         <!-- 标题区域 -->
         <header class="text-center mb-6 fade-in">
-            <h1 class="text-[clamp(2rem,5vw,3rem)] font-bold text-gray-800 mb-2">关键词随机排列工具</h1>
+            <h1 class="text-[clamp(2rem,5vw,3rem)] font-bold text-primary mb-2">关键词随机排列工具</h1>
             <p class="text-gray-600 text-lg">自定义多列关键词，一键随机排列组合</p>
         </header>
         
-        <!-- 结果预览区域 - 移到最上方 -->
+        <!-- 结果预览区域 -->
         <div class="bg-white rounded-xl p-6 card-shadow fade-in mb-8" style="animation-delay: 0.1s">
             <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <i class="fa fa-star text-accent"></i> 当前随机结果组合
+                <i class="fa fa-star text-primary"></i> 每列随机结果
             </h2>
-            <div id="previewContainer" class="min-h-[80px] flex items-center justify-center">
-                <div class="text-gray-500 py-6">点击随机按钮生成结果</div>
+            <div id="previewContainer" class="min-h-[140px] flex items-center justify-center p-6">
+                <div class="text-gray-500 py-6">点击随机按钮生成每列结果</div>
             </div>
         </div>
         
         <!-- 控制区域 -->
         <div class="bg-white rounded-xl p-6 mb-8 card-shadow fade-in" style="animation-delay: 0.2s">
             <div class="flex flex-wrap gap-4 justify-center">
+                <!-- 预设相关控制 -->
+                <div class="flex flex-wrap gap-3 items-center">
+                    <select id="presetSelect" class="border border-gray-300 rounded-lg px-4 py-3 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <option value="">选择预设...</option>
+                    </select>
+                    <button id="editPresetName" class="flex items-center gap-2 bg-blue-400 hover:bg-blue-500 text-white px-3 py-3 rounded-lg font-medium hover-lift" disabled>
+                        <i class="fa fa-pencil"></i> 重命名
+                    </button>
+                    <button id="savePreset" class="flex items-center gap-2 bg-accent hover:bg-accent/90 text-white px-4 py-3 rounded-lg font-medium hover-lift">
+                        <i class="fa fa-save"></i> 保存预设
+                    </button>
+                    <button id="deletePreset" class="flex items-center gap-2 bg-red-400 hover:bg-red-500 text-white px-3 py-3 rounded-lg font-medium hover-lift" disabled>
+                        <i class="fa fa-trash"></i> 删除
+                    </button>
+                </div>
+                
+                <!-- 原有控制按钮 -->
                 <button id="addColumn" class="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg font-medium hover-lift">
                     <i class="fa fa-plus-circle"></i> 添加列
                 </button>
                 <button id="randomAll" class="flex items-center gap-2 bg-secondary hover:bg-secondary/90 text-white px-6 py-3 rounded-lg font-medium hover-lift">
-                    <i class="fa fa-random"></i> 生成随机组合
+                    <i class="fa fa-random"></i> 生成每列随机结果
                 </button>
                 <button id="clearAll" class="flex items-center gap-2 bg-neutral hover:bg-neutral/90 text-white px-6 py-3 rounded-lg font-medium hover-lift">
                     <i class="fa fa-trash"></i> 清空所有
@@ -101,95 +178,119 @@
         
         <!-- 列容器 -->
         <div id="columnsContainer" class="flex flex-wrap gap-6 mb-10">
-            <!-- 初始列 - 名称列 -->
+            <!-- 初始列 - 主体 -->
             <div class="column bg-white rounded-xl p-5 card-shadow flex-1 min-w-[280px] fade-in" style="animation-delay: 0.3s">
                 <div class="flex items-center justify-between mb-4">
-                    <input type="text" class="column-title text-xl font-semibold text-gray-800 border-b-2 border-primary p-2 w-full focus:outline-none focus:border-accent transition-colors" value="名称" placeholder="列标题">
-                    <button class="delete-column text-gray-400 hover:text-red-500 ml-2 p-2 transition-colors">
+                    <input type="text" class="column-title text-xl font-semibold text-gray-800 border-b-2 border-primary p-2 w-full focus:outline-none focus:border-primary/80 transition-colors" value="主体" placeholder="列标题">
+                    <button class="delete-column text-gray-400 hover:text-red-500 p-2 transition-colors ml-2" title="删除列">
                         <i class="fa fa-times"></i>
                     </button>
                 </div>
                 
-                <!-- 列随机结果显示框 -->
-                <div class="column-result bg-accent/5 border border-accent/20 rounded-lg p-3 mb-4">
-                    <span class="text-sm text-gray-500">当前随机结果：</span>
-                    <span class="column-result-text font-medium text-accent">-</span>
+                <!-- 列随机结果显示框 - 优化布局和样式 -->
+                <div class="column-result border-2 border-primary/30 bg-resultBg rounded-xl p-4 mb-5 result-float">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm text-gray-500 whitespace-nowrap">当前选择：</span>
+                        <div class="column-result-text flex-1 font-bold text-xl text-primary rounded-lg text-center py-2 result-highlight">
+                            -
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- 按钮区域 - 添加词条和随机此列并排 -->
                 <div class="flex gap-3 mb-4">
-                    <button class="add-entry flex-1 flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover-lift">
+                    <button class="add-entry flex-1 flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-medium hover-lift">
                         <i class="fa fa-plus"></i> 添加词条
                     </button>
-                    <button class="random-column bg-accent/10 hover:bg-accent/20 text-accent p-2 rounded-lg hover-lift">
-                        <i class="fa fa-refresh"></i> 随机此列
+                    <button class="random-column bg-primary/10 hover:bg-primary/20 text-primary p-3 rounded-lg hover-lift">
+                        <i class="fa fa-refresh"></i> 随机
                     </button>
                 </div>
                 
-                <!-- 限制列的高度 -->
-                <div class="entries-container space-y-3 max-h-[300px] overflow-y-auto pr-2 border rounded-lg p-3 bg-gray-50">
-                    <div class="entry flex items-center gap-2 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-                        <input type="text" class="entry-text flex-1 bg-transparent border-none focus:outline-none" value="产品A" placeholder="输入关键词">
-                        <button class="delete-entry text-gray-400 hover:text-red-500 p-1 transition-colors">
+                <!-- 瀑布流布局的词条容器 -->
+                <div class="entries-container masonry-grid max-h-[300px] overflow-y-auto pr-6 border rounded-lg p-3 bg-gray-50">
+                    <div class="entry-wrapper">
+                        <div class="entry p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                            <input type="text" class="entry-text bg-transparent border-none focus:outline-none w-full" value="森林" placeholder="输入关键词">
+                        </div>
+                        <button class="delete-btn-outside text-gray-500">
                             <i class="fa fa-times-circle"></i>
                         </button>
                     </div>
-                    <div class="entry flex items-center gap-2 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-                        <input type="text" class="entry-text flex-1 bg-transparent border-none focus:outline-none" value="产品B" placeholder="输入关键词">
-                        <button class="delete-entry text-gray-400 hover:text-red-500 p-1 transition-colors">
+                    <div class="entry-wrapper">
+                        <div class="entry p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                            <input type="text" class="entry-text bg-transparent border-none focus:outline-none w-full" value="海洋" placeholder="输入关键词">
+                        </div>
+                        <button class="delete-btn-outside text-gray-500">
+                            <i class="fa fa-times-circle"></i>
+                        </button>
+                    </div>
+                    <div class="entry-wrapper">
+                        <div class="entry p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                            <input type="text" class="entry-text bg-transparent border-none focus:outline-none w-full" value="城市" placeholder="输入关键词">
+                        </div>
+                        <button class="delete-btn-outside text-gray-500">
                             <i class="fa fa-times-circle"></i>
                         </button>
                     </div>
                 </div>
             </div>
             
-            <!-- 初始列 - 时间列 -->
+            <!-- 初始列 - 风格 -->
             <div class="column bg-white rounded-xl p-5 card-shadow flex-1 min-w-[280px] fade-in" style="animation-delay: 0.4s">
                 <div class="flex items-center justify-between mb-4">
-                    <input type="text" class="column-title text-xl font-semibold text-gray-800 border-b-2 border-primary p-2 w-full focus:outline-none focus:border-accent transition-colors" value="时间" placeholder="列标题">
-                    <button class="delete-column text-gray-400 hover:text-red-500 ml-2 p-2 transition-colors">
+                    <input type="text" class="column-title text-xl font-semibold text-gray-800 border-b-2 border-primary p-2 w-full focus:outline-none focus:border-primary/80 transition-colors" value="风格" placeholder="列标题">
+                    <button class="delete-column text-gray-400 hover:text-red-500 p-2 transition-colors ml-2" title="删除列">
                         <i class="fa fa-times"></i>
                     </button>
                 </div>
                 
-                <!-- 列随机结果显示框 -->
-                <div class="column-result bg-accent/5 border border-accent/20 rounded-lg p-3 mb-4">
-                    <span class="text-sm text-gray-500">当前随机结果：</span>
-                    <span class="column-result-text font-medium text-accent">-</span>
+                <!-- 列随机结果显示框 - 优化布局和样式 -->
+                <div class="column-result border-2 border-primary/30 bg-resultBg rounded-xl p-4 mb-5 result-float">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm text-gray-500 whitespace-nowrap">当前选择：</span>
+                        <div class="column-result-text flex-1 font-bold text-xl text-primary rounded-lg text-center py-2 result-highlight">
+                            -
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- 按钮区域 - 添加词条和随机此列并排 -->
                 <div class="flex gap-3 mb-4">
-                    <button class="add-entry flex-1 flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover-lift">
+                    <button class="add-entry flex-1 flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-medium hover-lift">
                         <i class="fa fa-plus"></i> 添加词条
                     </button>
-                    <button class="random-column bg-accent/10 hover:bg-accent/20 text-accent p-2 rounded-lg hover-lift">
-                        <i class="fa fa-refresh"></i> 随机此列
+                    <button class="random-column bg-primary/10 hover:bg-primary/20 text-primary p-3 rounded-lg hover-lift">
+                        <i class="fa fa-refresh"></i> 随机
                     </button>
                 </div>
                 
-                <!-- 限制列的高度 -->
-                <div class="entries-container space-y-3 max-h-[300px] overflow-y-auto pr-2 border rounded-lg p-3 bg-gray-50">
-                    <div class="entry flex items-center gap-2 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-                        <input type="text" class="entry-text flex-1 bg-transparent border-none focus:outline-none" value="早上" placeholder="输入关键词">
-                        <button class="delete-entry text-gray-400 hover:text-red-500 p-1 transition-colors">
+                <!-- 瀑布流布局的词条容器 -->
+                <div class="entries-container masonry-grid max-h-[300px] overflow-y-auto pr-6 border rounded-lg p-3 bg-gray-50">
+                    <div class="entry-wrapper">
+                        <div class="entry p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                            <input type="text" class="entry-text bg-transparent border-none focus:outline-none w-full" value="极简主义" placeholder="输入关键词">
+                        </div>
+                        <button class="delete-btn-outside text-gray-500">
                             <i class="fa fa-times-circle"></i>
                         </button>
                     </div>
-                    <div class="entry flex items-center gap-2 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-                        <input type="text" class="entry-text flex-1 bg-transparent border-none focus:outline-none" value="中午" placeholder="输入关键词">
-                        <button class="delete-entry text-gray-400 hover:text-red-500 p-1 transition-colors">
-                            <i class="fa fa-times-circle"></i>
-                        </button>
-                    </div>
-                    <div class="entry flex items-center gap-2 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-                        <input type="text" class="entry-text flex-1 bg-transparent border-none focus:outline-none" value="晚上" placeholder="输入关键词">
-                        <button class="delete-entry text-gray-400 hover:text-red-500 p-1 transition-colors">
+                    <div class="entry-wrapper">
+                        <div class="entry p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                            <input type="text" class="entry-text bg-transparent border-none focus:outline-none w-full" value="赛博朋克" placeholder="输入关键词">
+                        </div>
+                        <button class="delete-btn-outside text-gray-500">
                             <i class="fa fa-times-circle"></i>
                         </button>
                     </div>
                 </div>
             </div>
+        </div>
+        
+        <!-- 预设管理提示 -->
+        <div id="presetNotification" class="fixed bottom-5 right-5 bg-gray-800 text-white px-5 py-3 rounded-lg shadow-lg opacity-0 transition-opacity duration-300 flex items-center gap-2 z-50">
+            <i class="fa fa-info-circle"></i>
+            <span id="notificationText"></span>
         </div>
         
         <!-- 页脚 -->
@@ -205,417 +306,563 @@
         const randomAllBtn = document.getElementById('randomAll');
         const clearAllBtn = document.getElementById('clearAll');
         const previewContainer = document.getElementById('previewContainer');
+        const presetSelect = document.getElementById('presetSelect');
+        const savePresetBtn = document.getElementById('savePreset');
+        const editPresetNameBtn = document.getElementById('editPresetName');
+        const deletePresetBtn = document.getElementById('deletePreset');
+        const presetNotification = document.getElementById('presetNotification');
+        const notificationText = document.getElementById('notificationText');
         
         // 初始化列计数器
         let columnCounter = document.querySelectorAll('.column').length;
+        // 预设数据存储
+        let presets = [];
         
-        // 添加新列
-        addColumnBtn.addEventListener('click', () => {
-            columnCounter++;
-            
-            const newColumn = document.createElement('div');
-            newColumn.className = 'column bg-white rounded-xl p-5 card-shadow flex-1 min-w-[280px] fade-in';
-            newColumn.innerHTML = `
-                <div class="flex items-center justify-between mb-4">
-                    <input type="text" class="column-title text-xl font-semibold text-gray-800 border-b-2 border-primary p-2 w-full focus:outline-none focus:border-accent transition-colors" value="列 ${columnCounter}" placeholder="列标题">
-                    <button class="delete-column text-gray-400 hover:text-red-500 ml-2 p-2 transition-colors">
-                        <i class="fa fa-times"></i>
-                    </button>
-                </div>
-                
-                <!-- 列随机结果显示框 -->
-                <div class="column-result bg-accent/5 border border-accent/20 rounded-lg p-3 mb-4">
-                    <span class="text-sm text-gray-500">当前随机结果：</span>
-                    <span class="column-result-text font-medium text-accent">-</span>
-                </div>
-                
-                <!-- 按钮区域 - 添加词条和随机此列并排 -->
-                <div class="flex gap-3 mb-4">
-                    <button class="add-entry flex-1 flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover-lift">
-                        <i class="fa fa-plus"></i> 添加词条
-                    </button>
-                    <button class="random-column bg-accent/10 hover:bg-accent/20 text-accent p-2 rounded-lg hover-lift">
-                        <i class="fa fa-refresh"></i> 随机此列
-                    </button>
-                </div>
-                
-                <div class="entries-container space-y-3 max-h-[300px] overflow-y-auto pr-2 border rounded-lg p-3 bg-gray-50">
-                    <div class="entry flex items-center gap-2 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-                        <input type="text" class="entry-text flex-1 bg-transparent border-none focus:outline-none" placeholder="输入关键词">
-                        <button class="delete-entry text-gray-400 hover:text-red-500 p-1 transition-colors">
-                            <i class="fa fa-times-circle"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            columnsContainer.appendChild(newColumn);
-            setupColumnEvents(newColumn);
-            
-            // 滚动到新添加的列
-            newColumn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        });
+        // 添加按钮点击反馈效果
+        function setupButtonFeedback(button) {
+            button.addEventListener('click', function() {
+                this.classList.remove('btn-active');
+                void this.offsetWidth;
+                this.classList.add('btn-active');
+            });
+        }
         
-        // 检查词条是否重复
-        function isDuplicateEntry(column, value, currentInput = null) {
-            if (!value.trim()) return false; // 空值不算重复
+        // 检查是否有重复词条
+        function hasDuplicateEntry(container, newValue) {
+            if (!newValue.trim()) return false;
             
-            const entries = column.querySelectorAll('.entry-text');
+            const entries = container.querySelectorAll('.entry-text');
+            const normalizedValue = newValue.trim().toLowerCase();
+            
             for (let entry of entries) {
-                // 跳过当前正在编辑的输入框
-                if (entry === currentInput) continue;
-                
-                if (entry.value.trim().toLowerCase() === value.trim().toLowerCase()) {
+                if (entry.value.trim().toLowerCase() === normalizedValue) {
                     return true;
                 }
             }
             return false;
         }
         
-        // 显示错误提示
-        function showError(message, element) {
-            // 移除已有的错误提示
-            const existingError = element.parentElement.querySelector('.error-message');
-            if (existingError) {
-                existingError.remove();
+        // 初始化预设系统
+        function initPresets() {
+            try {
+                const stored = localStorage.getItem('keywordPresets');
+                if (stored) {
+                    presets = JSON.parse(stored);
+                } else {
+                    presets = [];
+                }
+            } catch (e) {
+                console.error('加载预设失败:', e);
+                presets = [];
+                localStorage.removeItem('keywordPresets');
+            }
+            initPresetSelect();
+        }
+        
+        // 初始化预设选择下拉框
+        function initPresetSelect() {
+            const currentValue = presetSelect.value;
+            
+            while (presetSelect.options.length > 1) {
+                presetSelect.remove(1);
             }
             
-            // 创建新的错误提示
-            const errorElement = document.createElement('div');
-            errorElement.className = 'error-message text-red-500 text-sm mt-1 fade-in';
-            errorElement.textContent = message;
+            presets.forEach(preset => {
+                const option = document.createElement('option');
+                option.value = preset.id;
+                option.textContent = `${preset.name} (${preset.columns.length}列)`;
+                presetSelect.appendChild(option);
+            });
             
-            // 添加到DOM
-            element.parentElement.appendChild(errorElement);
+            if (currentValue && presets.some(p => p.id === currentValue)) {
+                presetSelect.value = currentValue;
+            } else {
+                presetSelect.value = '';
+            }
             
-            // 添加抖动效果
-            element.classList.add('ring-2', 'ring-red-300');
+            updatePresetButtons();
+        }
+        
+        // 更新预设按钮状态
+        function updatePresetButtons() {
+            const hasSelected = !!presetSelect.value;
+            
+            deletePresetBtn.disabled = !hasSelected;
+            deletePresetBtn.classList.toggle('opacity-50', !hasSelected);
+            deletePresetBtn.classList.toggle('cursor-not-allowed', !hasSelected);
+            
+            editPresetNameBtn.disabled = !hasSelected;
+            editPresetNameBtn.classList.toggle('opacity-50', !hasSelected);
+            editPresetNameBtn.classList.toggle('cursor-not-allowed', !hasSelected);
+        }
+        
+        // 显示通知
+        function showNotification(message) {
+            notificationText.textContent = message;
+            presetNotification.classList.remove('opacity-0');
+            presetNotification.classList.add('opacity-100');
+            
             setTimeout(() => {
-                element.classList.remove('ring-2', 'ring-red-300');
-            }, 1000);
-            
-            // 3秒后自动移除错误提示
-            setTimeout(() => {
-                errorElement.classList.add('opacity-0', 'transition-opacity', 'duration-300');
-                setTimeout(() => errorElement.remove(), 300);
+                presetNotification.classList.remove('opacity-100');
+                presetNotification.classList.add('opacity-0');
             }, 3000);
         }
         
-        // 为列设置事件监听
-        function setupColumnEvents(column) {
-            // 添加词条 - 新词条放在最上面
-            const addEntryBtn = column.querySelector('.add-entry');
-            addEntryBtn.addEventListener('click', () => {
-                const entriesContainer = column.querySelector('.entries-container');
-                const newEntry = document.createElement('div');
-                newEntry.className = 'entry flex items-center gap-2 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm scale-in';
-                newEntry.innerHTML = `
-                    <input type="text" class="entry-text flex-1 bg-transparent border-none focus:outline-none" placeholder="输入关键词">
-                    <button class="delete-entry text-gray-400 hover:text-red-500 p-1 transition-colors">
-                        <i class="fa fa-times-circle"></i>
+        // 添加新列
+        function addColumn(title = `列 ${columnCounter + 1}`) {
+            columnCounter++;
+            
+            const newColumn = document.createElement('div');
+            newColumn.className = 'column bg-white rounded-xl p-5 card-shadow flex-1 min-w-[280px] fade-in';
+            
+            newColumn.innerHTML = `
+                <div class="flex items-center justify-between mb-4">
+                    <input type="text" class="column-title text-xl font-semibold text-gray-800 border-b-2 border-primary p-2 w-full focus:outline-none focus:border-primary/80 transition-colors" value="${title}" placeholder="列标题">
+                    <button class="delete-column text-gray-400 hover:text-red-500 p-2 transition-colors ml-2" title="删除列">
+                        <i class="fa fa-times"></i>
                     </button>
-                `;
+                </div>
                 
-                // 添加到容器的最前面
-                if (entriesContainer.firstChild) {
-                    entriesContainer.insertBefore(newEntry, entriesContainer.firstChild);
-                } else {
-                    entriesContainer.appendChild(newEntry);
-                }
+                <!-- 列随机结果显示框 - 优化布局和样式 -->
+                <div class="column-result border-2 border-primary/30 bg-resultBg rounded-xl p-4 mb-5 result-float">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm text-gray-500 whitespace-nowrap">当前选择：</span>
+                        <div class="column-result-text flex-1 font-bold text-xl text-primary rounded-lg text-center py-2 result-highlight">
+                            -
+                        </div>
+                    </div>
+                </div>
                 
-                const entryInput = newEntry.querySelector('.entry-text');
+                <!-- 按钮区域 - 添加词条和随机此列并排 -->
+                <div class="flex gap-3 mb-4">
+                    <button class="add-entry flex-1 flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-medium hover-lift">
+                        <i class="fa fa-plus"></i> 添加词条
+                    </button>
+                    <button class="random-column bg-primary/10 hover:bg-primary/20 text-primary p-3 rounded-lg hover-lift">
+                        <i class="fa fa-refresh"></i> 随机
+                    </button>
+                </div>
                 
-                // 自动聚焦到新词条
-                entryInput.focus();
-                
-                // 为新词条添加删除事件
-                newEntry.querySelector('.delete-entry').addEventListener('click', () => {
-                    // 确保至少保留一个词条
-                    if (entriesContainer.children.length > 1) {
-                        newEntry.classList.add('opacity-0', 'transform', 'translate-y-2');
-                        newEntry.style.transition = 'opacity 0.2s, transform 0.2s';
-                        setTimeout(() => newEntry.remove(), 200);
-                    } else {
-                        // 只保留一个时清空内容
-                        entryInput.value = '';
-                    }
-                    updateColumnRandomResult(column);
-                    updateMainResult();
-                });
-                
-                // 输入时检查重复
-                entryInput.addEventListener('blur', () => {
-                    const value = entryInput.value;
-                    if (isDuplicateEntry(column, value, entryInput)) {
-                        showError('词条已存在，请输入不同的内容', entryInput);
-                        // 只清空，不删除输入框
-                        entryInput.value = '';
-                    }
-                    updateColumnRandomResult(column);
-                    updateMainResult();
-                });
-                
-                // 输入变化时更新结果
-                entryInput.addEventListener('input', () => {
-                    updateColumnRandomResult(column);
-                    updateMainResult();
-                });
-            });
+                <!-- 瀑布流布局的词条容器 -->
+                <div class="entries-container masonry-grid max-h-[300px] overflow-y-auto pr-6 border rounded-lg p-3 bg-gray-50">
+                </div>
+            `;
             
-            // 为现有词条添加重复检查和事件监听
-            const entryInputs = column.querySelectorAll('.entry-text');
-            entryInputs.forEach(input => {
-                // 失去焦点时检查重复
-                input.addEventListener('blur', () => {
-                    const value = input.value;
-                    if (isDuplicateEntry(column, value, input)) {
-                        showError('词条已存在，请输入不同的内容', input);
-                        input.value = ''; // 只清空，不删除
-                    }
-                    updateColumnRandomResult(column);
-                    updateMainResult();
-                });
-                
-                // 输入变化时更新结果
-                input.addEventListener('input', () => {
-                    updateColumnRandomResult(column);
-                    updateMainResult();
-                });
-            });
+            columnsContainer.appendChild(newColumn);
             
-            // 删除词条
-            const deleteEntryBtns = column.querySelectorAll('.delete-entry');
-            deleteEntryBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const entry = btn.closest('.entry');
-                    const entriesContainer = column.querySelector('.entries-container');
-                    
-                    // 确保至少保留一个词条
-                    if (entriesContainer.children.length > 1) {
-                        entry.classList.add('opacity-0', 'transform', 'translate-y-2');
-                        entry.style.transition = 'opacity 0.2s, transform 0.2s';
-                        setTimeout(() => entry.remove(), 200);
-                    } else {
-                        // 只保留一个时清空内容
-                        entry.querySelector('.entry-text').value = '';
-                    }
-                    updateColumnRandomResult(column);
-                    updateMainResult();
-                });
-            });
+            // 添加事件监听器
+            setupColumnEventListeners(newColumn);
             
-            // 单列随机
-            const randomColumnBtn = column.querySelector('.random-column');
-            randomColumnBtn.addEventListener('click', () => {
-                shuffleEntries(column);
-                updateColumnRandomResult(column);
-                updateMainResult();
-            });
-            
-            // 删除列
-            const deleteColumnBtn = column.querySelector('.delete-column');
-            deleteColumnBtn.addEventListener('click', () => {
-                // 确保至少保留一列
-                if (columnsContainer.children.length > 1) {
-                    column.classList.add('opacity-0', 'transform', 'scale-95');
-                    column.style.transition = 'opacity 0.2s, transform 0.2s';
-                    setTimeout(() => column.remove(), 200);
-                    updateMainResult();
-                } else {
-                    // 只保留一列时清空所有词条
-                    const entries = column.querySelectorAll('.entry-text');
-                    entries.forEach(entry => entry.value = '');
-                    updateColumnRandomResult(column);
-                    updateMainResult();
-                }
-            });
-            
-            // 列标题变化时更新结果
-            column.querySelector('.column-title').addEventListener('input', () => {
-                updateMainResult();
-            });
-            
-            // 初始化列随机结果
-            updateColumnRandomResult(column);
+            return newColumn;
         }
         
-        // 更新列的随机结果显示
-        function updateColumnRandomResult(column) {
+        // 为列设置事件监听器
+        function setupColumnEventListeners(column) {
+            // 删除列按钮
+            const deleteBtn = column.querySelector('.delete-column');
+            deleteBtn.addEventListener('click', () => {
+                if (document.querySelectorAll('.column').length <= 1) {
+                    showNotification('至少保留一列');
+                    return;
+                }
+                
+                column.classList.add('opacity-0', 'scale-95');
+                column.style.transition = 'all 0.3s ease';
+                
+                setTimeout(() => {
+                    column.remove();
+                    updatePreview();
+                }, 300);
+            });
+            setupButtonFeedback(deleteBtn);
+            
+            // 添加词条按钮
+            const addEntryBtn = column.querySelector('.add-entry');
+            addEntryBtn.addEventListener('click', () => {
+                addEntry(column.querySelector('.entries-container'));
+            });
+            setupButtonFeedback(addEntryBtn);
+            
+            // 随机此列按钮
+            const randomBtn = column.querySelector('.random-column');
+            randomBtn.addEventListener('click', () => {
+                randomizeColumn(column);
+                updatePreview();
+            });
+            setupButtonFeedback(randomBtn);
+            
+            // 列标题变化时更新预览
+            const titleInput = column.querySelector('.column-title');
+            titleInput.addEventListener('input', updatePreview);
+        }
+        
+        // 添加新词条
+        function addEntry(container) {
+            const entryWrapper = document.createElement('div');
+            entryWrapper.className = 'entry-wrapper fade-in';
+            
+            entryWrapper.innerHTML = `
+                <div class="entry p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                    <input type="text" class="entry-text bg-transparent border-none focus:outline-none w-full" placeholder="输入关键词">
+                </div>
+                <button class="delete-btn-outside text-gray-500">
+                    <i class="fa fa-times-circle"></i>
+                </button>
+            `;
+            
+            container.appendChild(entryWrapper);
+            
+            // 删除词条按钮
+            const deleteBtn = entryWrapper.querySelector('.delete-btn-outside');
+            deleteBtn.addEventListener('click', () => {
+                entryWrapper.classList.add('opacity-0', 'scale-90');
+                entryWrapper.style.transition = 'all 0.2s ease';
+                
+                setTimeout(() => {
+                    entryWrapper.remove();
+                }, 200);
+            });
+            setupButtonFeedback(deleteBtn);
+            
+            // 词条输入框事件 - 检查重复
+            const entryInput = entryWrapper.querySelector('.entry-text');
+            entryInput.addEventListener('blur', function() {
+                const value = this.value;
+                if (hasDuplicateEntry(container, value)) {
+                    // 找到重复的条目并高亮
+                    const entries = container.querySelectorAll('.entry-text');
+                    for (let entry of entries) {
+                        if (entry !== this && entry.value.trim().toLowerCase() === value.trim().toLowerCase()) {
+                            entry.closest('.entry').classList.add('bg-red-50', 'border', 'border-red-200');
+                            setTimeout(() => {
+                                entry.closest('.entry').classList.remove('bg-red-50', 'border', 'border-red-200');
+                            }, 2000);
+                            break;
+                        }
+                    }
+                    
+                    // 删除重复的新条目
+                    entryWrapper.classList.add('opacity-0', 'scale-90');
+                    entryWrapper.style.transition = 'all 0.2s ease';
+                    showNotification('已删除重复词条');
+                    
+                    setTimeout(() => {
+                        entryWrapper.remove();
+                    }, 200);
+                }
+            });
+            
+            // 自动聚焦到新添加的输入框
+            setTimeout(() => {
+                entryInput.focus();
+            }, 100);
+        }
+        
+        // 随机选择一列中的词条
+        function randomizeColumn(column) {
+            const entriesContainer = column.querySelector('.entries-container');
+            const entries = entriesContainer.querySelectorAll('.entry-text');
             const resultElement = column.querySelector('.column-result-text');
-            const entries = Array.from(column.querySelectorAll('.entry-text'))
+            
+            // 收集非空词条
+            const validEntries = Array.from(entries)
                 .map(entry => entry.value.trim())
                 .filter(value => value);
             
-            if (entries.length > 0) {
-                // 显示第一个词条作为默认
-                resultElement.textContent = entries[0];
-            } else {
+            // 移除动画类以重新触发
+            resultElement.classList.remove('result-pop');
+            
+            if (validEntries.length === 0) {
                 resultElement.textContent = '-';
+                // 触发重绘
+                void resultElement.offsetWidth;
+                resultElement.classList.add('result-pop');
+                return null;
             }
+            
+            // 随机选择一个词条
+            const randomIndex = Math.floor(Math.random() * validEntries.length);
+            const selectedEntry = validEntries[randomIndex];
+            
+            // 更新结果显示并添加动画效果
+            resultElement.textContent = selectedEntry;
+            // 触发重绘
+            void resultElement.offsetWidth;
+            resultElement.classList.add('result-pop');
+            
+            return selectedEntry;
         }
         
-        // 洗牌算法 - Fisher-Yates 算法
-        function shuffleArray(array) {
-            const newArray = [...array];
-            for (let i = newArray.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-            }
-            return newArray;
-        }
-        
-        // 从数组中随机选择一个元素
-        function getRandomItem(array) {
-            if (array.length === 0) return null;
-            return array[Math.floor(Math.random() * array.length)];
-        }
-        
-        // 随机排列指定列的词条并更新随机结果
-        function shuffleEntries(column) {
-            const entriesContainer = column.querySelector('.entries-container');
-            const entries = Array.from(entriesContainer.querySelectorAll('.entry'));
-            
-            // 保存词条内容
-            const entryValues = entries.map(entry => entry.querySelector('.entry-text').value);
-            
-            // 洗牌
-            const shuffledValues = shuffleArray(entryValues);
-            
-            // 添加动画效果
-            entries.forEach(entry => {
-                entry.classList.add('opacity-0', 'transform', 'translate-x-4');
-                entry.style.transition = 'opacity 0.3s, transform 0.3s';
+        // 随机所有列
+        function randomizeAllColumns() {
+            const columns = document.querySelectorAll('.column');
+            // 先移除所有动画类
+            columns.forEach(column => {
+                const resultElement = column.querySelector('.column-result-text');
+                resultElement.classList.remove('result-pop');
             });
             
-            // 延迟后更新内容并恢复显示
-            setTimeout(() => {
-                entries.forEach((entry, index) => {
-                    entry.querySelector('.entry-text').value = shuffledValues[index];
-                    entry.classList.remove('opacity-0', 'transform', 'translate-x-4');
+            // 强制重绘
+            void document.body.offsetWidth;
+            
+            // 同时为所有列应用动画和随机结果
+            columns.forEach(column => {
+                randomizeColumn(column);
+            });
+            
+            updatePreview();
+        }
+        
+        // 清空所有内容
+        function clearAll() {
+            if (confirm('确定要清空所有列和关键词吗？')) {
+                // 保留第一列，清空其他列
+                const columns = document.querySelectorAll('.column');
+                columns.forEach((column, index) => {
+                    if (index > 0) {
+                        column.remove();
+                    } else {
+                        // 清空第一列的内容但保留列本身
+                        const entriesContainer = column.querySelector('.entries-container');
+                        entriesContainer.innerHTML = '';
+                        column.querySelector('.column-result-text').textContent = '-';
+                        column.querySelector('.column-title').value = '列 1';
+                    }
                 });
                 
-                // 更新列随机结果
-                const resultElement = column.querySelector('.column-result-text');
-                const validEntries = shuffledValues.filter(v => v.trim());
-                if (validEntries.length > 0) {
-                    resultElement.textContent = validEntries[0];
-                    // 添加动画效果突出显示新结果
-                    resultElement.classList.add('pulse');
-                    setTimeout(() => resultElement.classList.remove('pulse'), 1000);
-                }
-            }, 300);
+                columnCounter = 1;
+                updatePreview();
+                showNotification('已清空所有内容');
+            }
         }
         
-        // 生成主随机结果
-        function generateMainResult() {
+        // 更新预览区域
+        function updatePreview() {
             const columns = document.querySelectorAll('.column');
-            const result = [];
+            const previewItems = [];
             
-            columns.forEach((column, index) => {
-                // 为每列添加一点延迟，创造错开的动画效果
-                setTimeout(() => shuffleEntries(column), index * 100);
+            columns.forEach(column => {
+                const title = column.querySelector('.column-title').value || '未命名列';
+                const result = column.querySelector('.column-result-text').textContent;
                 
-                // 收集有效的词条
-                const entries = Array.from(column.querySelectorAll('.entry-text'))
-                    .map(entry => entry.value.trim())
-                    .filter(value => value);
-                
-                // 获取列标题
-                const title = column.querySelector('.column-title').value || `列 ${index + 1}`;
-                
-                // 随机选择一个词条
-                const randomEntry = getRandomItem(entries);
-                
-                if (randomEntry) {
-                    result.push({
-                        title,
-                        value: randomEntry
-                    });
-                }
+                previewItems.push(`
+                    <div class="flex flex-col items-center p-4 m-2 flex-shrink-0 border-2 border-primary/30 bg-resultBg rounded-xl result-float min-w-[180px]">
+                        <span class="text-base text-gray-600 font-medium mb-1">${title}</span>
+                        <div class="px-4 py-2 bg-white text-primary font-bold text-lg rounded-lg result-highlight min-w-[120px] text-center">
+                            ${result}
+                        </div>
+                    </div>
+                `);
             });
             
-            // 延迟后更新结果显示，等待所有动画完成
-            setTimeout(() => {
-                displayMainResult(result);
-            }, 500 + columns.length * 100);
+            if (previewItems.length === 0) {
+                previewContainer.innerHTML = '<div class="text-gray-500 py-6">请添加列和关键词</div>';
+            } else {
+                previewContainer.innerHTML = `
+                    <div class="flex flex-wrap justify-center gap-6 w-full py-4">
+                        ${previewItems.join('')}
+                    </div>
+                `;
+            }
         }
         
-        // 显示主随机结果
-        function displayMainResult(result) {
-            if (result.length === 0) {
-                previewContainer.innerHTML = '<div class="text-gray-500 py-6">请添加词条后再生成随机结果</div>';
+        // 保存当前配置为预设
+        function saveCurrentAsPreset() {
+            const presetName = prompt('请输入预设名称:', `预设 ${presets.length + 1}`);
+            
+            if (!presetName || !presetName.trim()) {
+                showNotification('预设名称不能为空');
                 return;
             }
             
-            // 创建结果HTML
-            let resultHtml = '<div class="flex flex-wrap gap-4 justify-center items-center p-4 w-full">';
-            
-            result.forEach((item, index) => {
-                resultHtml += `
-                    <div class="flex flex-col items-center bg-gradient-to-br from-primary/10 to-accent/10 rounded-lg p-4 min-w-[120px] pulse" style="animation-delay: ${index * 0.1}s">
-                        <span class="text-sm text-gray-600 mb-1">${item.title}</span>
-                        <span class="text-lg font-semibold text-gray-800">${item.value}</span>
-                    </div>
-                `;
-            });
-            
-            resultHtml += '</div>';
-            previewContainer.innerHTML = resultHtml;
-        }
-        
-        // 更新主结果
-        function updateMainResult() {
+            // 收集当前列数据
             const columns = document.querySelectorAll('.column');
-            const result = [];
-            
-            columns.forEach((column, index) => {
-                // 收集有效的词条
+            const columnsData = Array.from(columns).map(column => {
+                const title = column.querySelector('.column-title').value || '';
                 const entries = Array.from(column.querySelectorAll('.entry-text'))
                     .map(entry => entry.value.trim())
                     .filter(value => value);
                 
-                // 获取列标题
-                const title = column.querySelector('.column-title').value || `列 ${index + 1}`;
-                
-                // 获取当前列显示的随机结果
-                const columnResult = column.querySelector('.column-result-text').textContent;
-                
-                if (entries.length > 0) {
-                    result.push({
-                        title,
-                        value: columnResult !== '-' ? columnResult : entries[0]
-                    });
-                }
+                return { title, entries };
             });
             
-            displayMainResult(result);
+            if (columnsData.length === 0) {
+                showNotification('至少保留一列才能保存预设');
+                return;
+            }
+            
+            // 创建新预设
+            const newPreset = {
+                id: Date.now().toString(),
+                name: presetName.trim(),
+                columns: columnsData,
+                createdAt: new Date().toISOString()
+            };
+            
+            // 检查是否是更新现有预设
+            const selectedPresetId = presetSelect.value;
+            if (selectedPresetId) {
+                const index = presets.findIndex(p => p.id === selectedPresetId);
+                if (index !== -1) {
+                    presets[index] = newPreset;
+                    showNotification(`已更新预设: ${presetName}`);
+                } else {
+                    presets.push(newPreset);
+                    showNotification(`已保存新预设: ${presetName}`);
+                }
+            } else {
+                presets.push(newPreset);
+                showNotification(`已保存新预设: ${presetName}`);
+            }
+            
+            // 保存到本地存储
+            localStorage.setItem('keywordPresets', JSON.stringify(presets));
+            initPresetSelect();
+            
+            // 选中新创建的预设
+            presetSelect.value = newPreset.id;
+            updatePresetButtons();
         }
         
-        // 所有列一起随机并生成主结果
-        randomAllBtn.addEventListener('click', generateMainResult);
+        // 加载选中的预设
+        function loadSelectedPreset() {
+            const presetId = presetSelect.value;
+            if (!presetId) return;
+            
+            const preset = presets.find(p => p.id === presetId);
+            if (!preset) return;
+            
+            // 清空现有列
+            columnsContainer.innerHTML = '';
+            columnCounter = 0;
+            
+            // 添加预设中的列
+            preset.columns.forEach(colData => {
+                const newColumn = addColumn(colData.title);
+                const entriesContainer = newColumn.querySelector('.entries-container');
+                
+                // 添加词条
+                colData.entries.forEach(entryText => {
+                    const entryWrapper = document.createElement('div');
+                    entryWrapper.className = 'entry-wrapper';
+                    
+                    entryWrapper.innerHTML = `
+                        <div class="entry p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                            <input type="text" class="entry-text bg-transparent border-none focus:outline-none w-full" value="${entryText}" placeholder="输入关键词">
+                        </div>
+                        <button class="delete-btn-outside text-gray-500">
+                            <i class="fa fa-times-circle"></i>
+                        </button>
+                    `;
+                    
+                    entriesContainer.appendChild(entryWrapper);
+                    
+                    // 删除词条按钮事件
+                    const deleteBtn = entryWrapper.querySelector('.delete-btn-outside');
+                    deleteBtn.addEventListener('click', () => {
+                        entryWrapper.remove();
+                    });
+                    setupButtonFeedback(deleteBtn);
+                    
+                    // 添加重复检查事件
+                    const entryInput = entryWrapper.querySelector('.entry-text');
+                    entryInput.addEventListener('blur', function() {
+                        const value = this.value;
+                        if (hasDuplicateEntry(entriesContainer, value)) {
+                            entryWrapper.classList.add('opacity-0', 'scale-90');
+                            entryWrapper.style.transition = 'all 0.2s ease';
+                            showNotification('已删除重复词条');
+                            
+                            setTimeout(() => {
+                                entryWrapper.remove();
+                            }, 200);
+                        }
+                    });
+                });
+            });
+            
+            updatePreview();
+            showNotification(`已加载预设: ${preset.name}`);
+        }
         
-        // 清空所有内容
-        clearAllBtn.addEventListener('click', () => {
-            if (confirm('确定要清空所有列和词条吗？')) {
-                const entries = document.querySelectorAll('.entry-text');
-                entries.forEach(entry => {
-                    entry.value = '';
-                });
-                
-                // 更新所有列的随机结果显示
-                document.querySelectorAll('.column').forEach(column => {
-                    updateColumnRandomResult(column);
-                });
-                
-                updateMainResult();
+        // 编辑预设名称
+        function editSelectedPresetName() {
+            const presetId = presetSelect.value;
+            if (!presetId) return;
+            
+            const preset = presets.find(p => p.id === presetId);
+            if (!preset) return;
+            
+            const newName = prompt('修改预设名称:', preset.name);
+            if (!newName || !newName.trim()) {
+                showNotification('预设名称不能为空');
+                return;
             }
-        });
+            
+            preset.name = newName.trim();
+            localStorage.setItem('keywordPresets', JSON.stringify(presets));
+            initPresetSelect();
+            showNotification(`已更新预设名称: ${newName}`);
+        }
         
-        // 初始化所有现有列的事件
-        document.querySelectorAll('.column').forEach(setupColumnEvents);
+        // 删除选中的预设
+        function deleteSelectedPreset() {
+            const presetId = presetSelect.value;
+            if (!presetId) return;
+            
+            const preset = presets.find(p => p.id === presetId);
+            if (!preset) return;
+            
+            if (confirm(`确定要删除预设 "${preset.name}" 吗？`)) {
+                presets = presets.filter(p => p.id !== presetId);
+                localStorage.setItem('keywordPresets', JSON.stringify(presets));
+                initPresetSelect();
+                showNotification(`已删除预设: ${preset.name}`);
+            }
+        }
         
-        // 初始更新主结果
-        updateMainResult();
+        // 初始化事件监听器
+        function initEventListeners() {
+            // 添加列按钮
+            addColumnBtn.addEventListener('click', addColumn);
+            setupButtonFeedback(addColumnBtn);
+            
+            // 随机所有列按钮
+            randomAllBtn.addEventListener('click', randomizeAllColumns);
+            setupButtonFeedback(randomAllBtn);
+            
+            // 清空所有按钮
+            clearAllBtn.addEventListener('click', clearAll);
+            setupButtonFeedback(clearAllBtn);
+            
+            // 预设相关按钮
+            savePresetBtn.addEventListener('click', saveCurrentAsPreset);
+            setupButtonFeedback(savePresetBtn);
+            
+            editPresetNameBtn.addEventListener('click', editSelectedPresetName);
+            setupButtonFeedback(editPresetNameBtn);
+            
+            deletePresetBtn.addEventListener('click', deleteSelectedPreset);
+            setupButtonFeedback(deletePresetBtn);
+            
+            presetSelect.addEventListener('change', loadSelectedPreset);
+            
+            // 为初始列设置事件监听器
+            document.querySelectorAll('.column').forEach(setupColumnEventListeners);
+            
+            // 初始化预览
+            updatePreview();
+        }
+        
+        // 初始化
+        function init() {
+            initPresets();
+            initEventListeners();
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
+    
